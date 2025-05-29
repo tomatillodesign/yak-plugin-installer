@@ -1,9 +1,10 @@
 <?php
 /**
  * Plugin Name: Yak Plugin Installer
- * Description: One-click GitHub + WordPress.org plugin installer with selectable options.
- * Author: Your Name
+ * Description: One-click GitHub + WordPress.org plugin installer with selectable options and bulk AJAX install.
  * Version: 1.0
+ * Author: Chris Liu-Beers, Tomatillo Design
+ * Author URI: https://tomatillodesign.com
  */
 
 add_action('admin_menu', function () {
@@ -12,104 +13,169 @@ add_action('admin_menu', function () {
 
 function yak_plugins_get_list() {
 	return [
-		// GitHub plugin: zip download
-		[
-			'type' => 'github',
-			'name' => 'Yak Cards',
-			'slug' => 'yak-cards',
-			'zip'  => 'https://github.com/YOURNAME/yak-cards/archive/refs/heads/main.zip',
-		],
-		// WordPress.org plugin: install via slug
-		[
-			'type' => 'wporg',
-			'name' => 'Disable Comments',
-			'slug' => 'disable-comments',
-		],
+		[ 'type' => 'github', 'name' => 'AVIF Everywhere (GitHub)', 'slug' => 'tomatillo-design-avif-everywhere', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-avif-everywhere/archive/refs/heads/main.zip' ],
+		[ 'type' => 'github', 'name' => 'CTD Tabs on Page (GitHub)', 'slug' => 'ctd-tabs-on-page', 'zip' => 'https://github.com/tomatillodesign/ctd-tabs-on-page/archive/refs/heads/main.zip' ],
+		[ 'type' => 'wporg', 'name' => 'Disable Comments (WordPress.org)', 'slug' => 'disable-comments' ],
+		[ 'type' => 'wporg', 'name' => 'Limit Login Attempts Reloaded (WordPress.org)', 'slug' => 'limit-login-attempts-reloaded' ],
+		[ 'type' => 'wporg', 'name' => 'Safe SVG (WordPress.org)', 'slug' => 'safe-svg' ],
+		[ 'type' => 'github', 'name' => 'Simple Collapse (GitHub)', 'slug' => 'tomatillo-design-simple-collapse', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-simple-collapse/archive/refs/heads/main.zip' ],
+		[ 'type' => 'github', 'name' => 'Site Manager Role (GitHub)', 'slug' => 'tomatillo-design-site-manager-role', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-site-manager-role/archive/refs/heads/main.zip' ],
+		[ 'type' => 'github', 'name' => 'Yak Events Calendar (GitHub)', 'slug' => 'tomatillo-design-yak-events-calendar', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-yak-events-calendar/archive/refs/heads/main.zip' ],
+		[ 'type' => 'github', 'name' => 'Yak Info Cards (GitHub)', 'slug' => 'tomatillo-design-yak-info-cards', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-yak-info-cards/archive/refs/heads/main.zip' ],
+		[ 'type' => 'github', 'name' => 'YakStretch Cover Block (GitHub)', 'slug' => 'tomatillo-design-yakstretch-cover-block', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-yakstretch-cover-block/archive/refs/heads/main.zip' ],
 	];
 }
 
 function yak_plugins_page() {
-	$plugins      = yak_plugins_get_list();
-	$saved        = get_option('yak_plugin_selections', []);
-	$current_page = admin_url('admin.php?page=yak-plugins');
+	$plugins = yak_plugins_get_list();
+	$saved = get_option('yak_plugin_selections', false);
 
-	if (isset($_POST['yak_plugins_submit']) && check_admin_referer('yak_plugins_form')) {
-		$selections = $_POST['yak_plugins'] ?? [];
-		update_option('yak_plugin_selections', $selections);
-		echo '<div class="notice notice-success"><p>Selections saved.</p></div>';
+	if ($saved === false) {
+		$saved = array_map(fn($p) => $p['slug'], $plugins);
+		update_option('yak_plugin_selections', $saved);
+	} else {
+		$valid_slugs = array_map(fn($p) => $p['slug'], $plugins);
+		$saved = array_intersect($saved, $valid_slugs);
+		$saved = array_unique(array_merge($saved, $valid_slugs));
+		update_option('yak_plugin_selections', $saved);
 	}
 
+	$all_plugins = get_plugins();
+
 	echo '<div class="wrap"><h1>Yak Plugin Installer</h1>';
-	echo '<form method="post">';
-	wp_nonce_field('yak_plugins_form');
+	echo '<form id="yak-plugins-form">';
 	echo '<table class="widefat"><thead><tr><th>Enable</th><th>Plugin</th><th>Status</th></tr></thead><tbody>';
 
 	foreach ($plugins as $plugin) {
-		$key = $plugin['slug'];
-		$checked = in_array($key, $saved) ? 'checked' : '';
-		$status = '❌ Not installed';
+		$slug = $plugin['slug'];
+		$matched_path = null;
 
-		if ($plugin['type'] === 'wporg') {
-			$status = is_plugin_active("{$plugin['slug']}/{$plugin['slug']}.php") ? '✅ Active' : '❌ Inactive';
-		} elseif ($plugin['type'] === 'github') {
-			$status = is_plugin_active("{$plugin['slug']}/{$plugin['slug']}.php") ? '✅ Active' : '❌ Inactive';
+		foreach (array_keys($all_plugins) as $path) {
+			if (str_starts_with($path, $slug . '/')) {
+				$matched_path = $path;
+				break;
+			}
+		}
+
+		if (!$matched_path) {
+			foreach (array_keys($all_plugins) as $path) {
+				if (str_contains($path, $slug)) {
+					$matched_path = $path;
+					break;
+				}
+			}
+		}
+
+		$is_active = $matched_path && is_plugin_active($matched_path);
+		$checked = (!$is_active && in_array($slug, $saved, true)) ? 'checked' : '';
+
+		$status = '❌ Not installed';
+		if ($matched_path) {
+			$status = $is_active ? '✅ Active' : '❌ Inactive';
 		}
 
 		echo '<tr>';
-		echo '<td><input type="checkbox" name="yak_plugins[]" value="' . esc_attr($key) . '" ' . $checked . '></td>';
+		echo '<td><input type="checkbox" name="yak_plugins[]" value="' . esc_attr($slug) . '" ' . $checked . '></td>';
 		echo '<td><strong>' . esc_html($plugin['name']) . '</strong></td>';
 		echo '<td>' . $status . '</td>';
 		echo '</tr>';
 	}
-	echo '</tbody></table><p><input type="submit" name="yak_plugins_submit" class="button button-primary" value="Save Plugin Selection"></p></form>';
 
-	// Action buttons for install
-	foreach ($plugins as $plugin) {
-		if (!in_array($plugin['slug'], $saved)) continue;
-
-		$install_url = wp_nonce_url(
-			admin_url('admin-post.php?action=yak_install_plugin&slug=' . $plugin['slug']),
-			'yak_install_plugin'
-		);
-
-		if ($plugin['type'] === 'github') {
-			$install_url = add_query_arg('zip', urlencode($plugin['zip']), $install_url);
-		}
-
-		echo '<p><a href="' . esc_url($install_url) . '" class="button">Install + Activate: ' . esc_html($plugin['name']) . '</a></p>';
-	}
-	echo '</div>';
+	echo '</tbody></table>';
+	echo '<p><button type="button" class="button button-primary" id="yak-install-button">Install Selected Plugins</button></p>';
+	echo '</form><div id="yak-install-output" style="margin-top:1em;"></div></div>';
 }
 
-add_action('admin_post_yak_install_plugin', function () {
-	check_admin_referer('yak_install_plugin');
+add_action('wp_ajax_yak_install_selected_plugins', function () {
+	if (!current_user_can('install_plugins')) wp_send_json_error('Unauthorized');
+	$selected = $_POST['plugins'] ?? [];
+	$plugins = yak_plugins_get_list();
 
-	$slug = sanitize_text_field($_GET['slug'] ?? '');
-	$zip  = esc_url_raw($_GET['zip'] ?? '');
-
-	if (!current_user_can('install_plugins')) wp_die('Not allowed.');
-
-	include_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
-	include_once ABSPATH . 'wp-admin/includes/plugin-install.php';
-	include_once ABSPATH . 'wp-admin/includes/file.php';
-	include_once ABSPATH . 'wp-admin/includes/misc.php';
-	include_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
-	include_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader.php';
+	require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	require_once ABSPATH . 'wp-admin/includes/misc.php';
+	require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+	require_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader.php';
+	require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
 
 	WP_Filesystem();
-	$upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
+	$results = [];
 
-	if ($zip) {
-		$upgrader->install($zip);
-	} else {
-		$api = plugins_api('plugin_information', ['slug' => $slug, 'fields' => ['sections' => false]]);
-		if (is_wp_error($api)) wp_die('Plugin not found.');
-		$upgrader->install($api->download_link);
+	foreach ($plugins as $plugin) {
+		if (!in_array($plugin['slug'], $selected)) continue;
+		$upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
+		$zip = $plugin['zip'] ?? '';
+
+		if ($plugin['type'] === 'github' && $zip) {
+			$success = $upgrader->install($zip);
+		} elseif ($plugin['type'] === 'wporg') {
+			$api = plugins_api('plugin_information', ['slug' => $plugin['slug'], 'fields' => ['sections' => false]]);
+			if (is_wp_error($api)) {
+				$results[] = $plugin['name'] . ' ❌ Plugin not found.';
+				continue;
+			}
+			$success = $upgrader->install($api->download_link);
+		} else {
+			$results[] = $plugin['name'] . ' ❌ Unknown plugin type.';
+			continue;
+		}
+
+		$plugin_info = $upgrader->plugin_info();
+		if ($plugin_info && !is_wp_error($plugin_info)) {
+			activate_plugin($plugin_info);
+			$results[] = $plugin['name'] . ' ✅ Installed and activated.';
+		} else {
+			$results[] = $plugin['name'] . ' ❌ Install failed.';
+		}
 	}
 
-	$plugin_info = $upgrader->plugin_info();
-	if ($plugin_info) activate_plugin($plugin_info);
+	wp_send_json_success($results);
+});
 
-	wp_redirect(admin_url('admin.php?page=yak-plugins'));
-	exit;
+add_action('admin_footer', function () {
+	$screen = get_current_screen();
+	if ($screen && $screen->id === 'toplevel_page_yak-plugins') : ?>
+	<script>
+		document.getElementById('yak-install-button').addEventListener('click', () => {
+			const form = document.getElementById('yak-plugins-form');
+			const data = new FormData(form);
+			const selected = Array.from(data.getAll('yak_plugins[]'));
+			const output = document.getElementById('yak-install-output');
+			output.innerHTML = '<em>Installing...</em>';
+
+			const params = new URLSearchParams();
+            params.append('action', 'yak_install_selected_plugins');
+            selected.forEach(slug => params.append('plugins[]', slug));
+
+            fetch(ajaxurl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: params
+            })
+			.then(res => res.json())
+            .then(json => {
+                console.log('[Yak Installer] AJAX response:', json); // <--- add this
+                if (json.success) {
+                    output.innerHTML = '<ul>' + json.data.map(line => '<li>' + line + '</li>').join('') + '</ul>';
+                } else {
+                    output.innerHTML = '<p style="color:red;">Install failed: ' + json.data + '</p>';
+                }
+            })
+
+			.catch(err => {
+				output.innerHTML = '<p style="color:red;">Unexpected error.</p>';
+				console.error(err);
+			});
+	});
+	</script>
+<?php endif;
+});
+
+
+
+
+
+register_uninstall_hook(__FILE__, function () {
+	delete_option('yak_plugin_selections');
 });
