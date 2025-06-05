@@ -70,11 +70,12 @@ function yak_installer_render_page() {
 			
 				$all_plugins = get_plugins();
 				foreach (array_keys($all_plugins) as $path) {
-					if (str_starts_with($path, $slug . '/')) {
+					if (stripos($path, $slug) !== false) {
 						$status = is_plugin_active($path) ? '✅ Active' : '❌ Inactive';
 						break;
 					}
 				}
+
 			if ($group === 'plugins') {
 				$upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
 
