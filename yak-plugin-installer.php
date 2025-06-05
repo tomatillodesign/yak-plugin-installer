@@ -64,51 +64,38 @@ function yak_installer_render_page() {
 
 		foreach ($items[$group] as $item) {
 			$slug = $item['slug'];
-			$checked = in_array($slug, $saved, true) ? 'checked' : '';
 			$status = '❌ Not installed';
+			$is_installed = false;
+			$is_active = false;
 
-			
+			if ($group === 'plugins') {
 				$all_plugins = get_plugins();
 				foreach (array_keys($all_plugins) as $path) {
 					if (stripos($path, $slug) !== false) {
-						$status = is_plugin_active($path) ? '✅ Active' : '❌ Inactive';
+						$is_installed = true;
+						if (is_plugin_active($path)) {
+							$is_active = true;
+							$status = '✅ Active';
+						} else {
+							$status = '❌ Inactive';
+						}
 						break;
 					}
-				}
-
-			if ($group === 'plugins') {
-				$upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
-
-				if ($item['type'] === 'wporg') {
-					$api = plugins_api('plugin_information', ['slug' => $item['slug'], 'fields' => ['sections' => false]]);
-					if (is_wp_error($api)) {
-						$results[] = $item['name'] . ' ❌ Plugin not found.';
-						continue;
-					}
-					$zip = $api->download_link;
-				} else {
-					$zip = $item['zip'] ?? '';
-				}
-
-				if (!$zip) {
-					$results[] = $item['name'] . ' ❌ No ZIP file URL.';
-					continue;
-				}
-
-				$success = $upgrader->install($zip);
-				$plugin_info = $upgrader->plugin_info();
-				if ($success && $plugin_info && !is_wp_error($plugin_info)) {
-					activate_plugin($plugin_info);
-					$results[] = $item['name'] . ' ✅ Installed and activated.';
-				} else {
-					$results[] = $item['name'] . ' ❌ Install failed.';
 				}
 			} elseif ($group === 'themes') {
 				$theme = wp_get_theme($slug);
 				if ($theme->exists()) {
+					$is_installed = true;
 					$status = '✅ Installed';
 				}
 			}
+
+			// Only check the box if it's in saved list and NOT active or installed
+			if ($group === 'plugins') {
+				$checked = (in_array($slug, $saved, true) && !$is_active) ? 'checked' : '';
+				} elseif ($group === 'themes') {
+					$checked = (in_array($slug, $saved, true) && !$is_installed) ? 'checked' : '';
+				}
 
 			echo '<tr>';
 			echo '<td><input type="checkbox" name="yak_plugins[]" value="' . esc_attr($slug) . '" ' . $checked . '></td>';
@@ -123,6 +110,8 @@ function yak_installer_render_page() {
 	echo '<p><button type="button" class="button button-primary" id="yak-install-button">Install Selected Items</button></p>';
 	echo '</form><div id="yak-install-output" style="margin-top:1em;"></div></div>';
 }
+
+
 
 add_action('wp_ajax_yak_install_selected_plugins', function () {
 	if (!current_user_can('install_plugins')) wp_send_json_error('Unauthorized');
