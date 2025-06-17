@@ -32,6 +32,7 @@ function yak_installer_get_items() {
 			[ 'type' => 'wporg', 'name' => 'Disable Comments (WordPress.org)', 'slug' => 'disable-comments' ],
 			[ 'type' => 'wporg', 'name' => 'Limit Login Attempts Reloaded (WordPress.org)', 'slug' => 'limit-login-attempts-reloaded' ],
 			[ 'type' => 'wporg', 'name' => 'Safe SVG (WordPress.org)', 'slug' => 'safe-svg' ],
+			[ 'type' => 'github', 'name' => 'Media Manager (GitHub)', 'slug' => 'tomatillo-design-media-manager', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-media-manager/archive/refs/heads/main.zip' ],
 			[ 'type' => 'github', 'name' => 'Simple Collapse (GitHub)', 'slug' => 'tomatillo-design-simple-collapse', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-simple-collapse/archive/refs/heads/main.zip' ],
 			[ 'type' => 'github', 'name' => 'Site Manager Role (GitHub)', 'slug' => 'tomatillo-design-site-manager-role', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-site-manager-role/archive/refs/heads/main.zip' ],
 			[ 'type' => 'github', 'name' => 'Yak Events Calendar (GitHub)', 'slug' => 'tomatillo-design-yak-events-calendar', 'zip' => 'https://github.com/tomatillodesign/tomatillo-design-yak-events-calendar/archive/refs/heads/main.zip' ],
